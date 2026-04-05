@@ -8,10 +8,23 @@ const UNSUPPORTED_EXTENSIONS = [
 ];
 
 function extractFilePath(src: string): string | null {
-  const prefix = 'app://local/';
-  if (src.startsWith(prefix)) {
-    return decodeURIComponent(src.slice(prefix.length));
+  // Handle app://local/ URLs
+  const localPrefix = 'app://local/';
+  if (src.startsWith(localPrefix)) {
+    return decodeURIComponent(src.slice(localPrefix.length));
   }
+  
+  // Handle obsidian://localhost/ URLs  
+  const obsidianPrefix = 'obsidian://localhost/';
+  if (src.startsWith(obsidianPrefix)) {
+    return decodeURIComponent(src.slice(obsidianPrefix.length));
+  }
+  
+  // Handle vault root paths like /photo.heic
+  if (src.startsWith('/')) {
+    return decodeURIComponent(src.slice(1));
+  }
+  
   return null;
 }
 
