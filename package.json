@@ -1,0 +1,21 @@
+{
+  "name": "obsidian-extended-image-support",
+  "version": "1.0.0",
+  "description": "Display unsupported image formats in Obsidian",
+  "main": "main.js",
+  "scripts": {
+    "build": "node esbuild.config.js",
+    "dev": "node esbuild.config.js --watch"
+  },
+  "dependencies": {
+    "obsidian": "^1.4.0",
+    "libheif-js": "^1.19.0",
+    "utif": "^3.1.0",
+    "ag-psd": "^1.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "esbuild": "^0.19.0",
+    "typescript": "^5.0.0"
+  }
+}
