@@ -1,4 +1,4 @@
-import { Plugin, MarkdownPostProcessor } from 'obsidian';
+import { Plugin, MarkdownPostProcessor, MarkdownView } from 'obsidian';
 import { BlobCache } from './blob-cache';
 import { DecoderRegistry } from './decoders/registry';
 import { decodeHeic } from './decoders/heic';
@@ -12,9 +12,13 @@ export default class ExtendedImageSupport extends Plugin {
   processor: MarkdownPostProcessor | null = null;
 
   async onload(): Promise<void> {
+    console.log('[Extended Image Support] Plugin loading...');
+    
     this.registerDecoders();
     this.registerPostProcessor();
     this.loadStyles();
+    
+    console.log('[Extended Image Support] Plugin loaded, supported formats:', this.registry.getSupportedExtensions());
   }
 
   registerDecoders(): void {
@@ -28,6 +32,20 @@ export default class ExtendedImageSupport extends Plugin {
   registerPostProcessor(): void {
     this.processor = createImagePostProcessor(this.app, this.registry, this.cache);
     this.registerMarkdownPostProcessor(this.processor);
+    
+    // Also try to handle images in active view
+    this.app.workspace.on('layout-ready', () => {
+      this.processActiveView();
+    });
+  }
+  
+  processActiveView(): void {
+    const activeLeaf = this.app.workspace.getActiveFileView();
+    if (activeLeaf instanceof MarkdownView) {
+      const container = activeLeaf.containerEl;
+      const images = container.querySelectorAll('img');
+      console.log('[Extended Image Support] Found images in active view:', images.length);
+    }
   }
 
   loadStyles(): void {
@@ -51,5 +69,6 @@ export default class ExtendedImageSupport extends Plugin {
 
   onunload(): void {
     this.cache.clear();
+    console.log('[Extended Image Support] Plugin unloaded');
   }
 }
