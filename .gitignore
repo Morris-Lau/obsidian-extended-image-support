@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+main.js
+main.js.map
+*.js.map
+
+# Obsidian vault files (for local testing)
+.obsidian/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Testing
+coverage/
+*.test.ts
+*.spec.ts
+
+# Temporary files
+*.tmp
+*.temp
+dist/
+build/
+
+# Documentation (local)
+docs/
