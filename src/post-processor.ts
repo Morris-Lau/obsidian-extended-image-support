@@ -36,49 +36,77 @@ function getExtension(filePath: string): string | null {
   return filePath.slice(lastDot + 1).toLowerCase();
 }
 
+async function processImage(
+  img: HTMLImageElement,
+  app: App,
+  registry: DecoderRegistry,
+  cache: BlobCache
+): Promise<void> {
+  const src = img.getAttribute('src');
+  if (!src) return;
+  
+  if (img.src.startsWith('blob:')) return;
+
+  const filePath = extractFilePath(src);
+  if (!filePath) return;
+
+  const extension = getExtension(filePath);
+  if (!extension) return;
+
+  if (!UNSUPPORTED_EXTENSIONS.includes(extension)) return;
+  if (!registry.isSupported(extension)) {
+    console.log('[Extended Image Support] Unsupported format:', extension);
+    return;
+  }
+
+  try {
+    let blobUrl = cache.get(filePath);
+
+    if (!blobUrl) {
+      console.log('[Extended Image Support] Decoding:', filePath);
+      const data = await app.vault.adapter.readBinary(filePath);
+      const blob = await registry.decode(data, extension);
+      blobUrl = URL.createObjectURL(blob);
+      await cache.set(filePath, blobUrl);
+      console.log('[Extended Image Support] Decoded successfully:', filePath);
+    }
+
+    img.src = blobUrl;
+  } catch (error) {
+    console.error('[Extended Image Support] Failed to decode:', filePath, error);
+    img.classList.add('image-decode-error');
+  }
+}
+
 export function createImagePostProcessor(
   app: App,
   registry: DecoderRegistry,
   cache: BlobCache
 ): MarkdownPostProcessor {
   const processor = async (el: HTMLElement, ctx: MarkdownPostProcessorContext): Promise<void> => {
-    // Use setTimeout to ensure DOM is ready
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
+    // Process existing images
     const images = Array.from(el.querySelectorAll('img'));
-    
     for (const img of images) {
-      const src = img.getAttribute('src');
-      if (!src) continue;
-
-      const filePath = extractFilePath(src);
-      if (!filePath) continue;
-
-      const extension = getExtension(filePath);
-      if (!extension) continue;
-
-      if (!UNSUPPORTED_EXTENSIONS.includes(extension)) continue;
-      if (!registry.isSupported(extension)) continue;
-
-      // Skip if already processed
-      if (img.src.startsWith('blob:')) continue;
-
-      try {
-        let blobUrl = cache.get(filePath);
-
-        if (!blobUrl) {
-          const data = await app.vault.adapter.readBinary(filePath);
-          const blob = await registry.decode(data, extension);
-          blobUrl = URL.createObjectURL(blob);
-          await cache.set(filePath, blobUrl);
-        }
-
-        img.src = blobUrl;
-      } catch (error) {
-        console.error('[Extended Image Support] Failed to decode:', filePath, error);
-        img.classList.add('image-decode-error');
-      }
+      await processImage(img, app, registry, cache);
     }
+
+    // Set up MutationObserver for dynamically added images
+    const observer = new MutationObserver(async (mutations) => {
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (node instanceof HTMLElement) {
+            const images = node instanceof HTMLImageElement 
+              ? [node] 
+              : Array.from(node.querySelectorAll('img'));
+            for (const img of images) {
+              await processImage(img, app, registry, cache);
+            }
+          }
+        }
+      }
+    });
+
+    observer.observe(el, { childList: true, subtree: true });
   };
 
   return processor;
