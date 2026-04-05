@@ -41,6 +41,126 @@ function getExtension(filePath: string): string | null {
   return filePath.slice(lastDot + 1).toLowerCase();
 }
 
+async function processEmbed(
+  el: HTMLElement,
+  app: App,
+  registry: DecoderRegistry,
+  cache: BlobCache
+): Promise<void> {
+  const src = el.getAttribute('src');
+  if (!src) return;
+
+  const filePath = extractFilePath(src);
+  if (!filePath) return;
+
+  const extension = getExtension(filePath);
+  if (!extension) return;
+
+  if (!UNSUPPORTED_EXTENSIONS.includes(extension)) return;
+  if (!registry.isSupported(extension)) return;
+
+  if (el.classList.contains('processed')) return;
+
+  try {
+    let blobUrl = cache.get(filePath);
+
+    if (!blobUrl) {
+      let file = app.vault.getAbstractFileByPath(filePath);
+      
+      if (!file) {
+        const normalized = filePath.replace(/\\/g, '/');
+        file = app.vault.getAbstractFileByPath(normalized);
+      }
+      
+      if (!file) {
+        const fileName = filePath.split('/').pop() || '';
+        file = await findFileByName(app, fileName);
+      }
+      
+      if (!file) {
+        el.classList.add('image-decode-error');
+        return;
+      }
+      
+      const data = await app.vault.readBinary(file);
+      const blob = await registry.decode(data, extension);
+      blobUrl = URL.createObjectURL(blob);
+      await cache.set(filePath, blobUrl);
+    }
+
+    el.replaceWith(createImg(blobUrl, src));
+  } catch (error) {
+    console.error('[Extended Image Support] Failed to decode:', filePath, error);
+    el.classList.add('image-decode-error');
+  }
+}
+
+async function findFileByName(app: App, fileName: string): Promise<any> {
+  const root = app.vault.root;
+  
+  function searchFolder(folder: any): any {
+    if (!folder.children) return null;
+    
+    for (const child of folder.children) {
+      if (child.name.toLowerCase() === fileName.toLowerCase()) {
+        return child;
+      }
+      if (child.children) {
+        const found = searchFolder(child);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+  
+  return searchFolder(root);
+}
+
+function createImg(src: string, alt: string): HTMLImageElement {
+  const img = document.createElement('img');
+  img.src = src;
+  img.alt = alt;
+  img.classList.add('processed');
+  return img;
+}
+
+export function createImagePostProcessor(
+  app: App,
+  registry: DecoderRegistry,
+  cache: BlobCache
+): MarkdownPostProcessor {
+  const processor = async (el: HTMLElement, ctx: MarkdownPostProcessorContext): Promise<void> => {
+    await processAllImagesInElement(el, app, registry, cache);
+
+    const observer = new MutationObserver(async (mutations) => {
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (node instanceof HTMLElement) {
+            // Process internal embeds
+            const embeds = node instanceof HTMLElement 
+              ? [node] 
+              : [];
+            for (const embed of embeds) {
+              if (embed.classList?.contains('internal-embed')) {
+                await processEmbed(embed, app, registry, cache);
+              }
+            }
+            // Also process img inside added nodes
+            const images = Array.from(node.querySelectorAll('img'));
+            for (const img of images) {
+              await processImage(img, app, registry, cache);
+            }
+          }
+        }
+      }
+    });
+
+    observer.observe(el, { childList: true, subtree: true });
+  };
+
+  return processor;
+}
+
 async function processImage(
   img: HTMLImageElement,
   app: App,
@@ -59,21 +179,16 @@ async function processImage(
   if (!extension) return;
 
   if (!UNSUPPORTED_EXTENSIONS.includes(extension)) return;
-  if (!registry.isSupported(extension)) {
-    console.log('[Extended Image Support] Unsupported format:', extension);
-    return;
-  }
+  if (!registry.isSupported(extension)) return;
 
   try {
     let blobUrl = cache.get(filePath);
 
     if (!blobUrl) {
-      console.log('[Extended Image Support] Decoding:', filePath);
       const data = await app.vault.adapter.readBinary(filePath);
       const blob = await registry.decode(data, extension);
       blobUrl = URL.createObjectURL(blob);
       await cache.set(filePath, blobUrl);
-      console.log('[Extended Image Support] Decoded successfully:', filePath);
     }
 
     img.src = blobUrl;
@@ -83,36 +198,21 @@ async function processImage(
   }
 }
 
-export function createImagePostProcessor(
+export async function processAllImagesInElement(
+  el: HTMLElement,
   app: App,
   registry: DecoderRegistry,
   cache: BlobCache
-): MarkdownPostProcessor {
-  const processor = async (el: HTMLElement, ctx: MarkdownPostProcessorContext): Promise<void> => {
-    // Process existing images
-    const images = Array.from(el.querySelectorAll('img'));
-    for (const img of images) {
-      await processImage(img, app, registry, cache);
-    }
-
-    // Set up MutationObserver for dynamically added images
-    const observer = new MutationObserver(async (mutations) => {
-      for (const mutation of mutations) {
-        for (const node of mutation.addedNodes) {
-          if (node instanceof HTMLElement) {
-            const images = node instanceof HTMLImageElement 
-              ? [node] 
-              : Array.from(node.querySelectorAll('img'));
-            for (const img of images) {
-              await processImage(img, app, registry, cache);
-            }
-          }
-        }
-      }
-    });
-
-    observer.observe(el, { childList: true, subtree: true });
-  };
-
-  return processor;
+): Promise<void> {
+  // Process internal embeds (like ![[file.heic]])
+  const embeds = Array.from(el.querySelectorAll('.internal-embed'));
+  for (const embed of embeds) {
+    await processEmbed(embed, app, registry, cache);
+  }
+  
+  // Also process regular img elements
+  const images = Array.from(el.querySelectorAll('img'));
+  for (const img of images) {
+    await processImage(img, app, registry, cache);
+  }
 }

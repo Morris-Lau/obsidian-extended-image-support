@@ -1,10 +1,10 @@
-import { Plugin, MarkdownPostProcessor, MarkdownView } from 'obsidian';
+import { Plugin, MarkdownPostProcessor, MarkdownView, WorkspaceItem } from 'obsidian';
 import { BlobCache } from './blob-cache';
 import { DecoderRegistry } from './decoders/registry';
 import { decodeHeic } from './decoders/heic';
 import { decodeTiff } from './decoders/tiff';
 import { decodePsd } from './decoders/psd';
-import { createImagePostProcessor } from './post-processor';
+import { createImagePostProcessor, processAllImagesInElement } from './post-processor';
 
 export default class ExtendedImageSupport extends Plugin {
   cache: BlobCache = new BlobCache();
@@ -19,6 +19,15 @@ export default class ExtendedImageSupport extends Plugin {
     this.loadStyles();
     
     console.log('[Extended Image Support] Plugin loaded, supported formats:', this.registry.getSupportedExtensions());
+    
+    // Process images when workspace is ready
+    this.app.workspace.on('layout-ready', () => {
+      setTimeout(() => this.processAllViews(), 1000);
+      
+      this.app.workspace.on('file-open', () => {
+        setTimeout(() => this.processAllViews(), 500);
+      });
+    });
   }
 
   registerDecoders(): void {
@@ -32,19 +41,19 @@ export default class ExtendedImageSupport extends Plugin {
   registerPostProcessor(): void {
     this.processor = createImagePostProcessor(this.app, this.registry, this.cache);
     this.registerMarkdownPostProcessor(this.processor);
-    
-    // Also try to handle images in active view
-    this.app.workspace.on('layout-ready', () => {
-      this.processActiveView();
-    });
   }
   
-  processActiveView(): void {
-    const activeLeaf = this.app.workspace.getActiveFileView();
-    if (activeLeaf instanceof MarkdownView) {
-      const container = activeLeaf.containerEl;
-      const images = container.querySelectorAll('img');
-      console.log('[Extended Image Support] Found images in active view:', images.length);
+  processAllViews(): void {
+    const leaves = this.app.workspace.getLeavesOfType('markdown');
+    
+    for (const leaf of leaves) {
+      const view = leaf.view;
+      if (view instanceof MarkdownView) {
+        const container = (view as any).containerEl || (view as any).contentEl;
+        if (container) {
+          processAllImagesInElement(container, this.app, this.registry, this.cache);
+        }
+      }
     }
   }
 
