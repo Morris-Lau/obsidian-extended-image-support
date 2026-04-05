@@ -20,9 +20,14 @@ function extractFilePath(src: string): string | null {
     return decodeURIComponent(src.slice(obsidianPrefix.length));
   }
   
-  // Handle vault root paths like /photo.heic
+  // Handle vault root paths like /photo.heic or assets/photo.heic
   if (src.startsWith('/')) {
     return decodeURIComponent(src.slice(1));
+  }
+  
+  // Handle relative paths like assets/photo.heic
+  if (src.includes('/') || src.includes('\\')) {
+    return decodeURIComponent(src);
   }
   
   return null;
