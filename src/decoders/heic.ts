@@ -4,14 +4,48 @@ let libheif: any = null;
 
 async function getLibheif() {
   if (!libheif) {
-    libheif = await import('libheif-js');
+    libheif = await import('libheif-js/wasm-bundle');
   }
   return libheif;
 }
 
+// 检测是否支持 OffscreenCanvas
+function supportsOffscreenCanvas(): boolean {
+  return typeof OffscreenCanvas !== 'undefined';
+}
+
+// 创建 canvas（兼容移动端）
+function createCanvas(width: number, height: number): HTMLCanvasElement | OffscreenCanvas {
+  if (supportsOffscreenCanvas()) {
+    return new OffscreenCanvas(width, height);
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  return canvas;
+}
+
+// 转换为 Blob（兼容移动端）
+async function canvasToBlob(canvas: HTMLCanvasElement | OffscreenCanvas): Promise<Blob> {
+  if (canvas instanceof OffscreenCanvas) {
+    return canvas.convertToBlob({ type: 'image/png' });
+  }
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error('Canvas toBlob failed'));
+    }, 'image/png');
+  });
+}
+
 export const decodeHeic: DecoderFn = async (data: ArrayBuffer): Promise<Blob> => {
-  const lib: any = await getLibheif();
+  // 移动端文件大小限制（10MB）
+  const MAX_SIZE = 10 * 1024 * 1024;
+  if (data.byteLength > MAX_SIZE) {
+    throw new Error(`File too large (${(data.byteLength / 1024 / 1024).toFixed(1)}MB). Max: 10MB`);
+  }
   
+  const lib: any = await getLibheif();
   const decoder = new lib.HeifDecoder();
   const decodedImages: any[] = decoder.decode(data);
   
@@ -23,7 +57,13 @@ export const decodeHeic: DecoderFn = async (data: ArrayBuffer): Promise<Blob> =>
   const width = image.get_width();
   const height = image.get_height();
   
-  const canvas = new OffscreenCanvas(width, height);
+  // 尺寸限制（防止内存溢出）
+  const MAX_DIMENSION = 10000;
+  if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+    throw new Error(`Image too large (${width}x${height}). Max: ${MAX_DIMENSION}px`);
+  }
+  
+  const canvas = createCanvas(width, height);
   const ctx = canvas.getContext('2d')!;
   const imageData = ctx.createImageData(width, height);
   
@@ -43,5 +83,5 @@ export const decodeHeic: DecoderFn = async (data: ArrayBuffer): Promise<Blob> =>
   imageData.data.set(displayData);
   ctx.putImageData(imageData, 0, 0);
   
-  return canvas.convertToBlob({ type: 'image/png' });
+  return canvasToBlob(canvas);
 };

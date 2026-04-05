@@ -1,10 +1,10 @@
 {
-  "id": "obsidian-extended-image-support",
+  "id": "extended-image-support",
   "name": "Extended Image Support",
   "version": "1.0.0",
-  "description": "Display unsupported image formats in Obsidian",
-  "author": "Your Name",
+  "minAppVersion": "0.15.0",
+  "description": "Display HEIC/HEIF images in Obsidian (TIFF/PSD coming soon)",
+  "author": "Morris",
   "authorUrl": "https://github.com/yourusername",
-  "isDesktopOnly": false,
-  "minAppVersion": "1.0.0"
+  "isDesktopOnly": false
 }
