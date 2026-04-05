@@ -9,6 +9,11 @@ const config = {
   target: 'es2020',
   platform: 'browser',
   external: ['obsidian'],
+  alias: {
+    util: './src/shims/util.js',
+    fs: './src/shims/fs.js',
+    path: './src/shims/path.js',
+  },
   format: 'cjs',
   sourcemap: true,
 };

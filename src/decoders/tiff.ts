@@ -1,27 +1,27 @@
 import { DecoderFn } from './registry';
 
-let UTIF: typeof import('utif') | null = null;
+let utifModule: any = null;
 
 async function getUtif() {
-  if (!UTIF) {
-    UTIF = await import('utif');
+  if (!utifModule) {
+    utifModule = await import('utif');
   }
-  return UTIF;
+  return utifModule;
 }
 
 export const decodeTiff: DecoderFn = async (data: ArrayBuffer): Promise<Blob> => {
-  const utif = await getUtif();
+  const utif: any = await getUtif();
 
-  const ifds = utif.decode(data);
+  const ifds: any[] = utif.decode(data);
 
   if (ifds.length === 0) {
     throw new Error('No images found in TIFF file');
   }
 
-  const ifd = ifds[0];
+  const ifd: any = ifds[0];
   utif.decodeImage(data, ifd);
 
-  const rgba = utif.toRGBA8(ifd);
+  const rgba: Uint8Array = utif.toRGBA8(ifd);
 
   const width = ifd.width;
   const height = ifd.height;

@@ -31,7 +31,22 @@ export default class ExtendedImageSupport extends Plugin {
   }
 
   loadStyles(): void {
-    this.addStyleSheet('styles.css');
+    const styleEl = document.createElement('style');
+    styleEl.textContent = `.image-decode-error {
+  border: 2px solid #ff4444;
+  background-color: #ffeeee;
+  padding: 8px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.image-decode-error::after {
+  content: "Failed to decode image";
+  display: block;
+  color: #ff4444;
+  font-size: 12px;
+}`;
+    document.head.appendChild(styleEl);
   }
 
   onunload(): void {

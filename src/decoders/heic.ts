@@ -1,6 +1,6 @@
 import { DecoderFn } from './registry';
 
-let libheif: typeof import('libheif-js') | null = null;
+let libheif: any = null;
 
 async function getLibheif() {
   if (!libheif) {
@@ -10,16 +10,16 @@ async function getLibheif() {
 }
 
 export const decodeHeic: DecoderFn = async (data: ArrayBuffer): Promise<Blob> => {
-  const lib = await getLibheif();
+  const lib: any = await getLibheif();
   
   const decoder = new lib.HeifDecoder();
-  const decodedImages = decoder.decode(data);
+  const decodedImages: any[] = decoder.decode(data);
   
   if (decodedImages.length === 0) {
     throw new Error('No images found in HEIC file');
   }
   
-  const image = decodedImages[0];
+  const image: any = decodedImages[0];
   const width = image.get_width();
   const height = image.get_height();
   
@@ -30,7 +30,7 @@ export const decodeHeic: DecoderFn = async (data: ArrayBuffer): Promise<Blob> =>
   const displayData = await new Promise<Uint8ClampedArray>((resolve, reject) => {
     image.display(
       { data: new Uint8ClampedArray(width * height * 4), width, height },
-      (result) => {
+      (result: any) => {
         if (!result) {
           reject(new Error('Failed to display HEIC image'));
           return;
