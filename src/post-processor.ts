@@ -42,6 +42,9 @@ export function createImagePostProcessor(
   cache: BlobCache
 ): MarkdownPostProcessor {
   const processor = async (el: HTMLElement, ctx: MarkdownPostProcessorContext): Promise<void> => {
+    // Use setTimeout to ensure DOM is ready
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     const images = Array.from(el.querySelectorAll('img'));
     
     for (const img of images) {
@@ -57,6 +60,9 @@ export function createImagePostProcessor(
       if (!UNSUPPORTED_EXTENSIONS.includes(extension)) continue;
       if (!registry.isSupported(extension)) continue;
 
+      // Skip if already processed
+      if (img.src.startsWith('blob:')) continue;
+
       try {
         let blobUrl = cache.get(filePath);
 
@@ -69,6 +75,7 @@ export function createImagePostProcessor(
 
         img.src = blobUrl;
       } catch (error) {
+        console.error('[Extended Image Support] Failed to decode:', filePath, error);
         img.classList.add('image-decode-error');
       }
     }
