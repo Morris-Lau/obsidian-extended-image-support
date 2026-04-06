@@ -12,7 +12,7 @@ export default class ExtendedImageSupport extends Plugin {
   blobCache: Map<string, string> = new Map();
   observer: MutationObserver | null = null;
 
-  async onload(): Promise<void> {
+  onload(): void {
     this.registry.registerDecoder('heic', decodeHeic);
     this.registry.registerDecoder('heif', decodeHeic);
     // TIFF and PSD support coming soon
@@ -51,10 +51,10 @@ export default class ExtendedImageSupport extends Plugin {
     }
   }
   
-  scanAndProcess(): void {
+  async scanAndProcess(): Promise<void> {
     const embeds = document.querySelectorAll('.internal-embed:not(.extended-image-processed)');
     for (const embed of Array.from(embeds)) {
-      this.processEmbed(embed as HTMLElement);
+      await this.processEmbed(embed as HTMLElement);
     }
   }
   

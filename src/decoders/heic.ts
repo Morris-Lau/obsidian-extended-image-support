@@ -1,10 +1,25 @@
 import { DecoderFn } from './registry';
 
-let libheif: any = null;
+// libheif-js 类型定义
+interface HeifImage {
+  get_width(): number;
+  get_height(): number;
+  display(target: { data: Uint8ClampedArray; width: number; height: number }, callback: (result: { data: Uint8ClampedArray } | null) => void): void;
+}
 
-async function getLibheif() {
+interface HeifDecoder {
+  decode(data: ArrayBuffer): HeifImage[];
+}
+
+interface LibheifModule {
+  HeifDecoder: new () => HeifDecoder;
+}
+
+let libheif: LibheifModule | null = null;
+
+async function getLibheif(): Promise<LibheifModule> {
   if (!libheif) {
-    libheif = await import('libheif-js/wasm-bundle');
+    libheif = await import('libheif-js/wasm-bundle') as LibheifModule;
   }
   return libheif;
 }
@@ -45,15 +60,15 @@ export const decodeHeic: DecoderFn = async (data: ArrayBuffer): Promise<Blob> =>
     throw new Error(`File too large (${(data.byteLength / 1024 / 1024).toFixed(1)}MB). Max: 10MB`);
   }
   
-  const lib: any = await getLibheif();
+  const lib = await getLibheif();
   const decoder = new lib.HeifDecoder();
-  const decodedImages: any[] = decoder.decode(data);
+  const decodedImages = decoder.decode(data);
   
   if (decodedImages.length === 0) {
     throw new Error('No images found in HEIC file');
   }
   
-  const image: any = decodedImages[0];
+  const image = decodedImages[0];
   const width = image.get_width();
   const height = image.get_height();
   
@@ -70,7 +85,7 @@ export const decodeHeic: DecoderFn = async (data: ArrayBuffer): Promise<Blob> =>
   const displayData = await new Promise<Uint8ClampedArray>((resolve, reject) => {
     image.display(
       { data: new Uint8ClampedArray(width * height * 4), width, height },
-      (result: any) => {
+      (result) => {
         if (!result) {
           reject(new Error('Failed to display HEIC image'));
           return;
