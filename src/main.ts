@@ -25,10 +25,10 @@ export default class ExtendedImageSupport extends Plugin {
   }
   
   setupLivePreview(): void {
-    setTimeout(() => this.scanAndProcess(), 500);
+    setTimeout(() => void this.scanAndProcess(), 500);
     
     this.registerEvent(this.app.workspace.on('file-open', () => {
-      setTimeout(() => this.scanAndProcess(), 300);
+      setTimeout(() => void this.scanAndProcess(), 300);
     }));
     
     this.observer = new MutationObserver((mutations) => {
@@ -37,7 +37,7 @@ export default class ExtendedImageSupport extends Plugin {
           if (node instanceof HTMLElement) {
             if (node.classList?.contains('internal-embed') || 
                 node.querySelector?.('.internal-embed')) {
-              this.scanAndProcess();
+              void this.scanAndProcess();
               return;
             }
           }
